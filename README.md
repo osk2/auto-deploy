@@ -1,5 +1,5 @@
 # auto-deploy
-Script to auto pull when repo been pushed
+Script to auto pull when repo is being pushed
 
 ## Installation
 
