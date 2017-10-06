@@ -1,0 +1,10 @@
+{
+  "config": {
+    "port": 8080,
+    "webhook": {
+      "path": "/webhook",
+      "secret": "secret"
+    }
+  },
+  "clients": {}
+}
