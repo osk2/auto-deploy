@@ -1,26 +1,65 @@
 const http = require('http');
 const shell = require('shelljs');
 const createHandler = require('github-webhook-handler');
-const config = require('./config');
-const handler = createHandler({
-  path: config.webhook.path,
-  secret: config.webhook.secret
-});
+const _ = require('lodash');
+const low = require('lowdb')
+const FileAsync = require('lowdb/adapters/FileAsync');
+const adapter = new FileAsync('./db.json');
 
-http.createServer((req, res) => {
-  handler(req, res, (err) => {
-    res.statusCode = 404;
-    res.end('No Found');
+low(adapter)
+.then((db) => {
+  const handler = createHandler({
+    path: db.get('config.webhook.path').value(),
+    secret: db.get('config.webhook.secret').value()
   });
-}).listen(config.app.port);
+  handler.on('push', (event) => {
+    const fullname = event.payload.repository.full_name;
+    const user = fullname.split('/')[0];
+    const repo = fullname.split('/')[1];
+    const gitUrl = event.payload.repository.git_url;
+    const repoQuery = db.get(`clients.${user}`).find({ repo });
+    const isUserExisted = db.get(`clients.${user}`).value();
+    const isRepoExisted = repoQuery.value();
 
-console.log(`App listening on port ${config.app.port}`);
+    if (isUserExisted) {
+      if (isRepoExisted) {
+        shell.rm('-rf', `clients/${fullname}`);
+        shell.exec(`git clone ${gitUrl} clients/${user}/${repo}`);
+        repoQuery.assign({
+          updated: (new Date()).toString()
+        }).write();
+      } else {
+        shell.exec(`git clone ${gitUrl} clients/${user}/${repo}`);
+        db.get(`clients.${user}`).push({
+          repo: repo,
+          url: gitUrl,
+          updated: (new Date()).toString()
+        }).write();
+      }
+    } else {
+      shell.mkdir(`clients/${user}`);
+      shell.exec(`git clone ${gitUrl} clients/${user}/${repo}`);
+      db.set(`clients.${user}`, []).write();
+      db.get(`clients.${user}`).push({
+        repo: repo,
+        url: gitUrl,
+        updated: (new Date()).toString()
+      }).write();
+    }
+  });
 
-handler.on('push', (event) => {
-  shell.rm('-r', config.project.path);
-  shell.exec(`git clone ${config.project.url}`);
-});
+  handler.on('ping', (event) => {
+    console.log(`ping from "${event.payload.repository.full_name}"`);
+  });
 
-handler.on('ping', (event) => {
-  console.log('pong');
+  http.createServer((req, res) => {
+    handler(req, res, (err) => {
+      res.statusCode = 404;
+      res.end('No Found');
+    });
+  }).listen(db.get('config.port').value());
+  console.log(`App listening on port ${db.get('config.port').value()}`);
+})
+.catch((ex) => {
+  console.log(ex)
 });
