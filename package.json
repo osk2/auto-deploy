@@ -1,6 +1,6 @@
 {
   "name": "auto-deploy",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Script to auto pull when repo been pushed",
   "main": "index.js",
   "repository": "git@github.com:osk2/auto-deploy.git",
@@ -8,6 +8,7 @@
   "license": "MIT",
   "dependencies": {
     "body-parser": "^1.18.2",
+    "express": "^4.16.1",
     "github-webhook-handler": "^0.6.0",
     "lodash": "^4.17.4",
     "lowdb": "^1.0.0",

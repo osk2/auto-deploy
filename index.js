@@ -1,9 +1,10 @@
-const http = require('http');
+const express = require('express');
 const shell = require('shelljs');
 const createHandler = require('github-webhook-handler');
 const _ = require('lodash');
 const low = require('lowdb')
 const FileAsync = require('lowdb/adapters/FileAsync');
+const app = express();
 const adapter = new FileAsync('./db.json');
 
 low(adapter)
@@ -12,6 +13,7 @@ low(adapter)
     path: db.get('config.webhook.path').value(),
     secret: db.get('config.webhook.secret').value()
   });
+
   handler.on('push', (event) => {
     const fullname = event.payload.repository.full_name;
     const user = fullname.split('/')[0];
@@ -25,11 +27,13 @@ low(adapter)
       if (isRepoExisted) {
         shell.rm('-rf', `clients/${fullname}`);
         shell.exec(`git clone ${gitUrl} clients/${user}/${repo}`);
+        shell.rm('-rf', `clients/${user}/${repo}/.git`);
         repoQuery.assign({
           updated: (new Date()).toString()
         }).write();
       } else {
         shell.exec(`git clone ${gitUrl} clients/${user}/${repo}`);
+        shell.rm('-rf', `clients/${user}/${repo}/.git`);
         db.get(`clients.${user}`).push({
           repo: repo,
           url: gitUrl,
@@ -39,6 +43,7 @@ low(adapter)
     } else {
       shell.mkdir(`clients/${user}`);
       shell.exec(`git clone ${gitUrl} clients/${user}/${repo}`);
+      shell.rm('-rf', `clients/${user}/${repo}/.git`);
       db.set(`clients.${user}`, []).write();
       db.get(`clients.${user}`).push({
         repo: repo,
@@ -52,13 +57,18 @@ low(adapter)
     console.log(`ping from "${event.payload.repository.full_name}"`);
   });
 
-  http.createServer((req, res) => {
+  app.use(express.static('clients'));
+
+  app.use((req, res) => {
     handler(req, res, (err) => {
       res.statusCode = 404;
-      res.end('No Found');
+      res.end('Not Found');
     });
-  }).listen(db.get('config.port').value());
-  console.log(`App listening on port ${db.get('config.port').value()}`);
+  });
+
+  app.listen(db.get('config.port').value(), () => {
+    console.log(`App listening on port ${db.get('config.port').value()}`);
+  });
 })
 .catch((ex) => {
   console.log(ex)
