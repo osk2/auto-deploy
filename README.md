@@ -15,4 +15,6 @@ node .
 
 ## License
 
-MIT. See [LICENSE](./LICENSE) for more detail.
+this project is licensed under the MIT
+
+See [LICENSE](./LICENSE) for more detail
